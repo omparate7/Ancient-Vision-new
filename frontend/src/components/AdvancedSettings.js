@@ -49,7 +49,7 @@ const AdvancedSettings = ({
           valueLabelDisplay="auto"
         />
         <Typography variant="caption" color="text.secondary">
-          0.1 = Subtle changes | 1.0 = Complete transformation (0.75 optimal for Ukiyo-e)
+          0.1 = Subtle changes | 1.0 = Complete transformation (0.75 optimal for traditional art)
         </Typography>
       </Box>
 
@@ -80,7 +80,7 @@ const AdvancedSettings = ({
           valueLabelDisplay="auto"
         />
         <Typography variant="caption" color="text.secondary">
-          Lower = More creative | Higher = Follows style strictly (8.5 optimal for Ukiyo-e)
+          Lower = More creative | Higher = Follows style strictly (8.5 optimal for traditional art)
         </Typography>
       </Box>
 
@@ -112,7 +112,7 @@ const AdvancedSettings = ({
           valueLabelDisplay="auto"
         />
         <Typography variant="caption" color="text.secondary">
-          10 = Fast | 25 = Optimal for Ukiyo-e | 50+ = High quality but slower
+          10 = Fast | 25 = Optimal for traditional art | 50+ = High quality but slower
         </Typography>
       </Box>
     </Box>

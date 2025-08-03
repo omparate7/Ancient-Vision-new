@@ -89,6 +89,41 @@ STYLES = {
         "name": "Seasonal Ukiyo-e",
         "prompt": "ukiyo-e seasonal print, traditional Japanese seasons, spring cherry blossoms, summer festivals, autumn maple leaves, winter snow scenes, seasonal activities, bold outlines, flat colors, decorative seasonal elements, woodblock print texture, masterpiece",
         "negative_prompt": "photorealistic, realistic, 3D render, gradients, shading, modern seasonal scenes, western seasonal art, photograph, detailed textures, contemporary, digital art"
+    },
+    "gond": {
+        "name": "Gond Art",
+        "prompt": "gond art, traditional tribal art from central India, intricate dot patterns, nature motifs, trees, animals, birds, vibrant colors, geometric patterns, tribal storytelling, traditional pigments, folk art style, madhya pradesh art, adivasi culture, detailed line work, masterpiece",
+        "negative_prompt": "photorealistic, realistic, 3D render, modern art, western art, photograph, digital art, contemporary, abstract"
+    },
+    "kalighat": {
+        "name": "Kalighat Painting",
+        "prompt": "kalighat painting, bengali folk art, bold lines, flat colors, traditional bengal painting, simple compositions, mythological themes, religious subjects, hand painted, traditional indian pigments, kolkata art style, expressive figures, cultural heritage, masterpiece",
+        "negative_prompt": "photorealistic, realistic, 3D render, gradients, modern art, western art, photograph, digital art, contemporary"
+    },
+    "kangra": {
+        "name": "Kangra Miniature",
+        "prompt": "kangra miniature painting, himalayan art, pahari school, delicate brushwork, fine details, natural colors, landscape backgrounds, royal court scenes, romantic themes, traditional indian miniature style, himachal pradesh art, detailed architecture, masterpiece",
+        "negative_prompt": "photorealistic, realistic, 3D render, modern art, western art, photograph, digital art, contemporary, abstract"
+    },
+    "kerala_mural": {
+        "name": "Kerala Mural",
+        "prompt": "kerala mural painting, south indian temple art, mythological scenes, vibrant colors, traditional pigments, religious themes, decorative patterns, classical indian art, temple wall painting, traditional kerala style, divine figures, ornate details, masterpiece",
+        "negative_prompt": "photorealistic, realistic, 3D render, modern art, western art, photograph, digital art, contemporary"
+    },
+    "madhubani": {
+        "name": "Madhubani Art",
+        "prompt": "madhubani painting, mithila art, bihar folk art, intricate patterns, geometric designs, nature themes, vibrant colors, traditional motifs, ritualistic art, hand painted, traditional indian pigments, cultural heritage, detailed linework, masterpiece",
+        "negative_prompt": "photorealistic, realistic, 3D render, modern art, western art, photograph, digital art, contemporary, abstract"
+    },
+    "mandana": {
+        "name": "Mandana Art",
+        "prompt": "mandana art, rajasthani folk art, geometric patterns, wall painting, traditional decorative art, symmetrical designs, auspicious symbols, festival art, tribal patterns, hand painted, natural pigments, cultural decoration, traditional motifs, masterpiece",
+        "negative_prompt": "photorealistic, realistic, 3D render, modern art, western art, photograph, digital art, contemporary"
+    },
+    "pichwai": {
+        "name": "Pichwai Painting",
+        "prompt": "pichwai painting, nathdwara art, krishna themes, temple backdrop art, rajasthani painting, religious art, traditional indian painting, devotional art, intricate details, vibrant colors, spiritual themes, temple decoration, cultural heritage, masterpiece",
+        "negative_prompt": "photorealistic, realistic, 3D render, modern art, western art, photograph, digital art, contemporary"
     }
 }
 

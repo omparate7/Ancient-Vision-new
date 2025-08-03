@@ -65,9 +65,16 @@ function App() {
       'portrait_ukiyo': 'Geisha, samurai, and kabuki actors in traditional dress', 
       'nature_ukiyo': 'Flora, fauna, birds, and seasonal natural elements',
       'urban_ukiyo': 'Edo period city life, markets, and street scenes',
-      'seasonal_ukiyo': 'Spring, summer, autumn, winter seasonal themes'
+      'seasonal_ukiyo': 'Spring, summer, autumn, winter seasonal themes',
+      'gond': 'Tribal art with intricate dot patterns and nature motifs',
+      'kalighat': 'Bengali folk art with bold lines and flat colors',
+      'kangra': 'Himalayan miniature painting with delicate brushwork',
+      'kerala_mural': 'South Indian temple art with mythological themes',
+      'madhubani': 'Bihar folk art with intricate geometric patterns',
+      'mandana': 'Rajasthani wall art with geometric decorative patterns',
+      'pichwai': 'Temple backdrop art with Krishna themes and devotional motifs'
     };
-    return descriptions[styleId] || 'Traditional Japanese art style';
+    return descriptions[styleId] || 'Traditional art style';
   };
 
     const loadModelsAndStyles = async () => {
@@ -151,7 +158,7 @@ function App() {
 
     const link = document.createElement('a');
     link.href = transformedImage;
-    link.download = `ukiyoe_fusion_${Date.now()}.png`;
+    link.download = `ancient_vision_${Date.now()}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -170,10 +177,10 @@ function App() {
         <Toolbar>
           <Palette sx={{ mr: 2 }} />
           <Typography variant="h5" component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
-            UkiyoeFusion
+            Ancient Vision
           </Typography>
           <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
-            Traditional Japanese Art Transformation
+            Traditional Art Transformation
           </Typography>
         </Toolbar>
       </AppBar>
@@ -186,16 +193,16 @@ function App() {
               <CardContent>
                 <Box display="flex" alignItems="center" mb={2}>
                   <Settings sx={{ mr: 1, color: 'primary.main' }} />
-                  <Typography variant="h6">Ukiyo-e Art Styles</Typography>
+                  <Typography variant="h6">Traditional Art Styles</Typography>
                 </Box>
 
                 {/* Model Selection */}
                 <FormControl fullWidth margin="normal">
-                  <InputLabel>Ukiyo-e Model</InputLabel>
+                  <InputLabel>Art Model</InputLabel>
                   <Select
                     value={selectedModel}
                     onChange={(e) => setSelectedModel(e.target.value)}
-                    label="Ukiyo-e Model"
+                    label="Art Model"
                   >
                     {Object.entries(models).map(([id, model]) => (
                       <MenuItem key={id} value={id}>
@@ -215,11 +222,11 @@ function App() {
 
                 {/* Style Selection */}
                 <FormControl fullWidth margin="normal">
-                  <InputLabel>Ukiyo-e Style</InputLabel>
+                  <InputLabel>Art Style</InputLabel>
                   <Select
                     value={selectedStyle}
                     onChange={(e) => setSelectedStyle(e.target.value)}
-                    label="Ukiyo-e Style"
+                    label="Art Style"
                   >
                     {Object.entries(styles).map(([id, style]) => (
                       <MenuItem key={id} value={id}>
@@ -242,12 +249,12 @@ function App() {
                   multiline
                   rows={3}
                   label="Additional Description (Optional)"
-                  placeholder="Add specific elements like cherry blossoms, samurai, temple, or leave empty for pure style..."
+                  placeholder="Add specific elements like lotus flowers, deities, nature motifs, or leave empty for pure style..."
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   margin="normal"
                   variant="outlined"
-                  helperText="Will be added to enhanced Ukiyo-e style prompt with bold outlines, flat colors, and traditional aesthetics"
+                  helperText="Will be added to the selected traditional art style prompt for enhanced results"
                 />
 
                 {/* Advanced Settings Toggle */}
@@ -287,7 +294,7 @@ function App() {
                       py: 1.5
                     }}
                   >
-                    {isLoading ? 'Creating Ukiyo-e Art...' : 'Transform to Ukiyo-e'}
+                    {isLoading ? 'Creating Traditional Art...' : 'Transform to Traditional Art'}
                   </Button>
                 </Box>
 
