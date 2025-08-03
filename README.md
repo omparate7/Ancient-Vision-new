@@ -1,31 +1,43 @@
-# 🎨 UkiyoeFusion
+# 🎨 Ancient Vision
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![React](https://img.shields.io/badge/react-18.0+-61dafb.svg)](https://reactjs.org/)
 [![Flask](https://img.shields.io/badge/flask-2.0+-green.svg)](https://flask.palletsprojects.com/)
 
-> Transform any image into authentic Ukiyo-e (traditional Japanese woodblock print) style using state-of-the-art AI technology.
+> Transform any image into authentic traditional art styles—including Japanese Ukiyo-e and Indian folk/temple art—using state-of-the-art AI technology.
 
-UkiyoeFusion bridges the gap between modern photography and traditional Japanese art, allowing users to experience the timeless beauty of Ukiyo-e through cutting-edge artificial intelligence.
+Ancient Vision bridges the gap between modern photography and traditional art, allowing users to experience the timeless beauty of both Japanese and Indian heritage styles through cutting-edge artificial intelligence.
 
 ## ✨ Features
 
 ### 🎨 **Artistic Transformation**
 
-- **Authentic Ukiyo-e Style**: Classic traditional style with your custom-trained LoRA model
+- **Authentic Traditional Styles**: Transform images into Japanese Ukiyo-e and a wide range of Indian folk and temple art styles
 - **ControlNet Integration**: Structural guidance while maintaining artistic style
   - 🎯 **Canny Edge Detection**: Preserves edges and outlines (automatically applied)
   - 🏔️ **Depth Estimation**: Maintains spatial relationships and depth
   - 🕺 **Pose Detection**: Preserves human poses and body structure
 - **Smart Prompting**: Default prompt with optional user additions
-  - Default: "ukiyo-e woodblock print, Edo period, mountain landscape, bold outlines, flat colors, traditional Japanese art, masterpiece"
+  - Each style has a unique, culturally accurate prompt for best results
   - User prompts are appended to the default for enhanced results
-- **Optimized Parameters**: Pre-configured settings for best Ukiyo-e results
+- **Optimized Parameters**: Pre-configured settings for best results
   - Strength: 0.75
   - Guidance Scale: 8.5
   - Inference Steps: 25
   - Resolution: 512x512
+
+#### Supported Art Styles
+
+- **Japanese Ukiyo-e** (classic, landscape, portrait, nature, urban, seasonal)
+- **Indian Traditional Styles:**
+  - **Gond Art**: Tribal art with dot patterns, nature, and storytelling
+  - **Kalighat Painting**: Bengali folk art, bold lines, mythological themes
+  - **Kangra Miniature**: Himalayan miniature, delicate brushwork, court scenes
+  - **Kerala Mural**: South Indian temple art, mythological scenes, vibrant colors
+  - **Madhubani Art**: Bihar folk art, geometric designs, ritualistic motifs
+  - **Mandana Art**: Rajasthani wall art, geometric and auspicious patterns
+  - **Pichwai Painting**: Nathdwara temple art, Krishna themes, devotional motifs
 
 ### 📱 **Modern Input Methods**
 
@@ -45,22 +57,23 @@ UkiyoeFusion bridges the gap between modern photography and traditional Japanese
 
 ## 🛠️ Tech Stack
 
-| Component            | Technology                     | Purpose                                 |
-| -------------------- | ------------------------------ | --------------------------------------- |
-| **Backend**          | Flask + PyTorch                | AI model serving and API endpoints      |
-| **Frontend**         | React + Material-UI            | Modern, responsive user interface       |
-| **AI Models**        | Stable Diffusion + Custom LoRA | Ukiyo-e style transformation engine     |
-| **ControlNet**       | Multiple ControlNet Models     | Structural guidance and preservation    |
-| **Image Processing** | Canvas API + WebRTC            | Real-time camera capture and processing |
+| Component            | Technology                     | Purpose                                     |
+| -------------------- | ------------------------------ | ------------------------------------------- |
+| **Backend**          | Flask + PyTorch                | AI model serving and API endpoints          |
+| **Frontend**         | React + Material-UI            | Modern, responsive user interface           |
+| **AI Models**        | Stable Diffusion + Custom LoRA | Traditional art style transformation engine |
+| **ControlNet**       | Multiple ControlNet Models     | Structural guidance and preservation        |
+| **Image Processing** | Canvas API + WebRTC            | Real-time camera capture and processing     |
 
 ## 🚀 Quick Start
 
 ### Automated Setup (Recommended)
 
 ```bash
+
 # Clone the repository
-git clone https://github.com/VinaySurwase/UkiyoeFusion.git
-cd UkiyoeFusion
+git clone https://github.com/VinaySurwase/Ancient-Vision.git
+cd Ancient-Vision
 
 # Make the run script executable and start everything
 chmod +x run.sh
@@ -94,23 +107,23 @@ chmod +x run.sh
 ### 🎨 Transformation Workflow
 
 1. **Select Input**: Upload a file or capture with camera
-2. **Choose Model**: Select your Ukiyo-e model (automatic detection of available models)
+2. **Choose Model**: Select your art model (automatic detection of available models)
 3. **Add Context** _(Optional)_: Provide additional descriptive prompts that will be added to the default prompt
 4. **Configure Settings** _(Optional)_: Adjust advanced parameters if needed (strength, guidance scale, steps)
-5. **Transform**: Click transform and let AI create your Ukiyo-e artwork with automatic ControlNet guidance
-6. **Download**: Save your traditional Japanese artwork
+5. **Transform**: Click transform and let AI create your traditional artwork with automatic ControlNet guidance
+6. **Download**: Save your traditional artwork
 
 ### 📋 Default Configuration
 
-| Parameter       | Value                                                                                                                        | Purpose                                  |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| **Base Prompt** | "ukiyo-e woodblock print, Edo period, mountain landscape, bold outlines, flat colors, traditional Japanese art, masterpiece" | Core Ukiyo-e style definition            |
-| **Negative**    | "modern, contemporary, 3D, photorealistic, blurry, low quality"                                                              | Prevents unwanted modern elements        |
-| **Strength**    | 0.75                                                                                                                         | Balance between original and transformed |
-| **Guidance**    | 8.5                                                                                                                          | Optimal prompt adherence for Ukiyo-e     |
-| **Steps**       | 25                                                                                                                           | Fast processing with quality results     |
-| **Resolution**  | 512x512                                                                                                                      | Optimized for Ukiyo-e model performance  |
-| **ControlNet**  | Canny (0.8 strength)                                                                                                         | Automatic edge preservation              |
+| Parameter       | Value                                                               | Purpose                                  |
+| --------------- | ------------------------------------------------------------------- | ---------------------------------------- |
+| **Base Prompt** | Each style has a unique, culturally accurate prompt (see below)     | Core traditional style definition        |
+| **Negative**    | Each style has a negative prompt to avoid modern/realistic elements | Prevents unwanted modern elements        |
+| **Strength**    | 0.75                                                                | Balance between original and transformed |
+| **Guidance**    | 8.5                                                                 | Optimal prompt adherence for style       |
+| **Steps**       | 25                                                                  | Fast processing with quality results     |
+| **Resolution**  | 512x512                                                             | Optimized for model performance          |
+| **ControlNet**  | Canny (0.8 strength)                                                | Automatic edge preservation              |
 
 ### 📋 Camera Feature Requirements
 
@@ -164,13 +177,13 @@ cp your_custom_model.safetensors models/
 
 ### Endpoints
 
-| Method | Endpoint          | Description                       | Parameters                             |
-| ------ | ----------------- | --------------------------------- | -------------------------------------- |
-| `POST` | `/api/transform`  | Transform image to Ukiyo-e style  | `image`, `prompt`, `control_type`, etc |
-| `GET`  | `/api/models`     | List available AI models          | None                                   |
-| `GET`  | `/api/styles`     | List available Ukiyo-e styles     | None                                   |
-| `GET`  | `/api/controlnet` | List available ControlNet options | None                                   |
-| `GET`  | `/api/health`     | Service health check              | None                                   |
+| Method | Endpoint          | Description                          | Parameters                                      |
+| ------ | ----------------- | ------------------------------------ | ----------------------------------------------- |
+| `POST` | `/api/transform`  | Transform image to traditional style | `image`, `prompt`, `style`, `control_type`, etc |
+| `GET`  | `/api/models`     | List available AI models             | None                                            |
+| `GET`  | `/api/styles`     | List available art styles            | None                                            |
+| `GET`  | `/api/controlnet` | List available ControlNet options    | None                                            |
+| `GET`  | `/api/health`     | Service health check                 | None                                            |
 
 ### Example Request
 
@@ -179,8 +192,8 @@ curl -X POST http://localhost:5001/api/transform \
   -H "Content-Type: application/json" \
   -d '{
     "image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ...",
-    "prompt": "mountain temple with cherry blossoms",
-    "style": "classic_ukiyo",
+    "prompt": "lotus flowers, peacocks, or mythological scene",
+    "style": "gond",  # or kalighat, kangra, kerala_mural, madhubani, mandana, pichwai, classic_ukiyo, etc.
     "control_type": "canny",
     "controlnet_conditioning_scale": 1.0,
     "strength": 0.75,
@@ -305,7 +318,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**[⬆ Back to Top](#-ukiyoefusion)**
+**[⬆ Back to Top](#-ancient-vision)**
 
 Made with ❤️ for art enthusiasts and technology lovers
 
