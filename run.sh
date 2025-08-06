@@ -106,6 +106,20 @@ cleanup() {
     exit 0
 }
 
+# Function to kill processes on a specific port
+kill_port() {
+    local port=$1
+    local pids=$(lsof -ti :$port)
+    if [ ! -z "$pids" ]; then
+        echo -e "${YELLOW}🔄 Killing existing processes on port $port...${NC}"
+        echo $pids | xargs kill -9 2>/dev/null
+        sleep 2
+        echo -e "${GREEN}  ✓ Port $port is now free${NC}"
+        return 0
+    fi
+    return 1
+}
+
 # Function to check if port is available
 check_port() {
     local port=$1
@@ -119,11 +133,16 @@ check_port() {
 # Set trap to cleanup on script exit
 trap cleanup SIGINT SIGTERM
 
-# Check if ports are available
-echo -e "${YELLOW}🔍 Checking port availability...${NC}"
-check_port 5001 || echo -e "${YELLOW}  Port 5001 (Art Transform API) is in use${NC}"
-check_port 5002 || echo -e "${YELLOW}  Port 5002 (Statue Restoration API) is in use${NC}"
-check_port 3000 || echo -e "${YELLOW}  Port 3000 (Frontend) is in use${NC}"
+# Check and free up ports
+echo -e "${YELLOW}🔍 Checking and freeing up required ports...${NC}"
+
+# Kill processes on required ports
+kill_port 5001
+kill_port 5002
+kill_port 3000
+kill_port 3001
+
+echo -e "${GREEN}✅ All required ports are now available${NC}"
 
 # Start Flask backend on port 5001
 echo -e "${BLUE}🚀 Starting Art Transform API on port 5001...${NC}"
@@ -156,19 +175,12 @@ else
     echo -e "${RED}  ❌ Statue Restoration API failed to start${NC}"
 fi
 
-# Start React frontend on port 3000 or 3001 if busy
-echo -e "${BLUE}🚀 Starting React frontend...${NC}"
+# Start React frontend on port 3000
+echo -e "${BLUE}🚀 Starting React frontend on port 3000...${NC}"
 cd frontend
-if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then
-    echo -e "${YELLOW}  Port 3000 is busy, using port 3001...${NC}"
-    PORT=3001 npm start &
-    FRONTEND_PID=$!
-    FRONTEND_PORT=3001
-else
-    PORT=3000 npm start &
-    FRONTEND_PID=$!
-    FRONTEND_PORT=3000
-fi
+PORT=3000 npm start &
+FRONTEND_PID=$!
+FRONTEND_PORT=3000
 echo -e "${GREEN}  ✓ Frontend starting (PID: $FRONTEND_PID) on port $FRONTEND_PORT${NC}"
 cd ..
 
