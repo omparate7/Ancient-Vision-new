@@ -20,7 +20,9 @@ import {
   CardContent,
   Chip,
   IconButton,
-  Tooltip
+  Tooltip,
+  Tabs,
+  Tab
 } from '@mui/material';
 import {
   CloudUpload,
@@ -28,16 +30,21 @@ import {
   Refresh,
   Settings,
   Palette,
-  AutoAwesome
+  AutoAwesome,
+  Restore
 } from '@mui/icons-material';
 import ImageUpload from './components/ImageUpload';
 import ImagePreview from './components/ImagePreview';
 import AdvancedSettings from './components/AdvancedSettings';
+import StatueRestoration from './components/StatueRestoration';
 import { transformImage, getModels, getStyles } from './services/api';
 import './App.css';
 
 function App() {
-  // State management
+  // Main navigation state
+  const [currentModule, setCurrentModule] = useState(0); // 0: Art Transform, 1: Statue Restoration
+
+  // State management for art transformation
   const [originalImage, setOriginalImage] = useState(null);
   const [transformedImage, setTransformedImage] = useState(null);
   const [prompt, setPrompt] = useState('');
@@ -180,230 +187,298 @@ function App() {
             Ancient Vision
           </Typography>
           <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
-            Traditional Art Transformation
+            AI-Powered Art & Restoration Platform
           </Typography>
         </Toolbar>
       </AppBar>
 
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Grid container spacing={3}>
-          {/* Left Panel - Controls */}
-          <Grid item xs={12} md={4}>
-            <Card elevation={3}>
-              <CardContent>
-                <Box display="flex" alignItems="center" mb={2}>
-                  <Settings sx={{ mr: 1, color: 'primary.main' }} />
-                  <Typography variant="h6">Traditional Art Styles</Typography>
-                </Box>
+      {/* Main Navigation Tabs */}
+      <Container maxWidth="xl" sx={{ py: 2 }}>
+        <Tabs 
+          value={currentModule} 
+          onChange={(e, newValue) => setCurrentModule(newValue)}
+          sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
+          centered
+        >
+          <Tab 
+            icon={<Palette />} 
+            label="Traditional Art Transform" 
+            sx={{ minHeight: 60, fontSize: '1rem' }}
+          />
+          <Tab 
+            icon={<Restore />} 
+            label="Statue Restoration" 
+            sx={{ minHeight: 60, fontSize: '1rem' }}
+          />
+        </Tabs>
 
-                {/* Model Selection */}
-                <FormControl fullWidth margin="normal">
-                  <InputLabel>Art Model</InputLabel>
-                  <Select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    label="Art Model"
-                  >
-                    {Object.entries(models).map(([id, model]) => (
-                      <MenuItem key={id} value={id}>
-                        <Box>
-                          <Typography variant="body2">{model.name}</Typography>
-                          <Chip 
-                            label={model.type} 
-                            size="small" 
-                            color={model.type === 'local' ? 'secondary' : 'primary'}
-                            sx={{ ml: 1 }}
-                          />
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+        {/* Module Content */}
+        {currentModule === 0 && (
+          <ArtTransformModule 
+            originalImage={originalImage}
+            setOriginalImage={setOriginalImage}
+            transformedImage={transformedImage}
+            setTransformedImage={setTransformedImage}
+            prompt={prompt}
+            setPrompt={setPrompt}
+            selectedStyle={selectedStyle}
+            setSelectedStyle={setSelectedStyle}
+            selectedModel={selectedModel}
+            setSelectedModel={setSelectedModel}
+            strength={strength}
+            setStrength={setStrength}
+            guidanceScale={guidanceScale}
+            setGuidanceScale={setGuidanceScale}
+            steps={steps}
+            setSteps={setSteps}
+            isLoading={isLoading}
+            setIsLoading={setIsLoading}
+            error={error}
+            setError={setError}
+            models={models}
+            styles={styles}
+            showAdvanced={showAdvanced}
+            setShowAdvanced={setShowAdvanced}
+            getStyleDescription={getStyleDescription}
+            loadModelsAndStyles={loadModelsAndStyles}
+            handleImageUpload={handleImageUpload}
+            handleTransform={handleTransform}
+            handleDownload={handleDownload}
+            handleReset={handleReset}
+          />
+        )}
 
-                {/* Style Selection */}
-                <FormControl fullWidth margin="normal">
-                  <InputLabel>Art Style</InputLabel>
-                  <Select
-                    value={selectedStyle}
-                    onChange={(e) => setSelectedStyle(e.target.value)}
-                    label="Art Style"
-                  >
-                    {Object.entries(styles).map(([id, style]) => (
-                      <MenuItem key={id} value={id}>
-                        <Box>
-                          <Typography variant="body2" fontWeight="medium">
-                            {style.name}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            {getStyleDescription(id)}
-                          </Typography>
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                {/* Optional Prompt Input */}
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  label="Additional Description (Optional)"
-                  placeholder="Add specific elements like lotus flowers, deities, nature motifs, or leave empty for pure style..."
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  margin="normal"
-                  variant="outlined"
-                  helperText="Will be added to the selected traditional art style prompt for enhanced results"
-                />
-
-                {/* Advanced Settings Toggle */}
-                <Box mt={2} mb={1}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<AutoAwesome />}
-                    onClick={() => setShowAdvanced(!showAdvanced)}
-                    fullWidth
-                  >
-                    {showAdvanced ? 'Hide' : 'Show'} Advanced Settings
-                  </Button>
-                </Box>
-
-                {/* Advanced Settings */}
-                {showAdvanced && (
-                  <AdvancedSettings
-                    strength={strength}
-                    setStrength={setStrength}
-                    guidanceScale={guidanceScale}
-                    setGuidanceScale={setGuidanceScale}
-                    steps={steps}
-                    setSteps={setSteps}
-                  />
-                )}
-
-                {/* Action Buttons */}
-                <Box mt={3} display="flex" gap={1}>
-                  <Button
-                    variant="contained"
-                    onClick={handleTransform}
-                    disabled={isLoading || !originalImage}
-                    startIcon={isLoading ? <CircularProgress size={20} /> : <AutoAwesome />}
-                    fullWidth
-                    sx={{ 
-                      background: 'linear-gradient(45deg, #FF6B6B 30%, #4ECDC4 90%)',
-                      py: 1.5
-                    }}
-                  >
-                    {isLoading ? 'Creating Traditional Art...' : 'Transform to Traditional Art'}
-                  </Button>
-                </Box>
-
-                <Box mt={1} display="flex" gap={1}>
-                  <Button
-                    variant="outlined"
-                    onClick={handleReset}
-                    startIcon={<Refresh />}
-                    fullWidth
-                  >
-                    Reset
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={handleDownload}
-                    disabled={!transformedImage}
-                    startIcon={<Download />}
-                    fullWidth
-                  >
-                    Download
-                  </Button>
-                </Box>
-
-                {/* Refresh Models Button */}
-                <Box mt={2}>
-                  <Button
-                    variant="text"
-                    onClick={loadModelsAndStyles}
-                    startIcon={<Refresh />}
-                    fullWidth
-                    size="small"
-                  >
-                    Refresh Models
-                  </Button>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Right Panel - Images */}
-          <Grid item xs={12} md={8}>
-            <Grid container spacing={2}>
-              {/* Original Image */}
-              <Grid item xs={12} md={6}>
-                <Paper elevation={3} sx={{ p: 2, height: '100%' }}>
-                  <Typography variant="h6" gutterBottom>
-                    Original Image
-                  </Typography>
-                  <ImageUpload onImageUpload={handleImageUpload} />
-                  {originalImage && (
-                    <Box mt={2}>
-                      <ImagePreview src={originalImage} alt="Original" />
-                    </Box>
-                  )}
-                </Paper>
-              </Grid>
-
-              {/* Transformed Image */}
-              <Grid item xs={12} md={6}>
-                <Paper elevation={3} sx={{ p: 2, height: '100%' }}>
-                  <Typography variant="h6" gutterBottom>
-                    Transformed Image
-                  </Typography>
-                  {isLoading ? (
-                    <Box 
-                      display="flex" 
-                      flexDirection="column" 
-                      alignItems="center" 
-                      justifyContent="center" 
-                      height={300}
-                    >
-                      <CircularProgress size={60} />
-                      <Typography variant="body2" mt={2} color="text.secondary">
-                        AI is working its magic...
-                      </Typography>
-                    </Box>
-                  ) : transformedImage ? (
-                    <ImagePreview src={transformedImage} alt="Transformed" />
-                  ) : (
-                    <Box 
-                      display="flex" 
-                      alignItems="center" 
-                      justifyContent="center" 
-                      height={300}
-                      bgcolor="grey.100"
-                      borderRadius={1}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        Transformed image will appear here
-                      </Typography>
-                    </Box>
-                  )}
-                </Paper>
-              </Grid>
-            </Grid>
-
-            {/* Error Display */}
-            {error && (
-              <Box mt={2}>
-                <Alert severity="error" onClose={() => setError('')}>
-                  {error}
-                </Alert>
-              </Box>
-            )}
-          </Grid>
-        </Grid>
+        {currentModule === 1 && (
+          <StatueRestoration />
+        )}
       </Container>
     </div>
   );
 }
+
+// Art Transform Module Component
+const ArtTransformModule = ({ 
+  originalImage, setOriginalImage, transformedImage, setTransformedImage,
+  prompt, setPrompt, selectedStyle, setSelectedStyle, selectedModel, setSelectedModel,
+  strength, setStrength, guidanceScale, setGuidanceScale, steps, setSteps,
+  isLoading, setIsLoading, error, setError, models, styles, showAdvanced, setShowAdvanced,
+  getStyleDescription, loadModelsAndStyles, handleImageUpload, handleTransform, handleDownload, handleReset
+}) => (
+  <Grid container spacing={3}>
+    {/* Left Panel - Controls */}
+    <Grid item xs={12} md={4}>
+      <Card elevation={3}>
+        <CardContent>
+          <Box display="flex" alignItems="center" mb={2}>
+            <Settings sx={{ mr: 1, color: 'primary.main' }} />
+            <Typography variant="h6">Traditional Art Styles</Typography>
+          </Box>
+
+          {/* Model Selection */}
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Art Model</InputLabel>
+            <Select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              label="Art Model"
+            >
+              {Object.entries(models).map(([id, model]) => (
+                <MenuItem key={id} value={id}>
+                  <Box>
+                    <Typography variant="body2">{model.name}</Typography>
+                    <Chip 
+                      label={model.type} 
+                      size="small" 
+                      color={model.type === 'local' ? 'secondary' : 'primary'}
+                      sx={{ ml: 1 }}
+                    />
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Style Selection */}
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Art Style</InputLabel>
+            <Select
+              value={selectedStyle}
+              onChange={(e) => setSelectedStyle(e.target.value)}
+              label="Art Style"
+            >
+              {Object.entries(styles).map(([id, style]) => (
+                <MenuItem key={id} value={id}>
+                  <Box>
+                    <Typography variant="body2" fontWeight="medium">
+                      {style.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      {getStyleDescription(id)}
+                    </Typography>
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Optional Prompt Input */}
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            label="Additional Description (Optional)"
+            placeholder="Add specific elements like lotus flowers, deities, nature motifs, or leave empty for pure style..."
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            margin="normal"
+            variant="outlined"
+            helperText="Will be added to the selected traditional art style prompt for enhanced results"
+          />
+
+          {/* Advanced Settings Toggle */}
+          <Box mt={2} mb={1}>
+            <Button
+              variant="outlined"
+              startIcon={<AutoAwesome />}
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              fullWidth
+            >
+              {showAdvanced ? 'Hide' : 'Show'} Advanced Settings
+            </Button>
+          </Box>
+
+          {/* Advanced Settings */}
+          {showAdvanced && (
+            <AdvancedSettings
+              strength={strength}
+              setStrength={setStrength}
+              guidanceScale={guidanceScale}
+              setGuidanceScale={setGuidanceScale}
+              steps={steps}
+              setSteps={setSteps}
+            />
+          )}
+
+          {/* Action Buttons */}
+          <Box mt={3} display="flex" gap={1}>
+            <Button
+              variant="contained"
+              onClick={handleTransform}
+              disabled={isLoading || !originalImage}
+              startIcon={isLoading ? <CircularProgress size={20} /> : <AutoAwesome />}
+              fullWidth
+              sx={{ 
+                background: 'linear-gradient(45deg, #FF6B6B 30%, #4ECDC4 90%)',
+                py: 1.5
+              }}
+            >
+              {isLoading ? 'Creating Traditional Art...' : 'Transform to Traditional Art'}
+            </Button>
+          </Box>
+
+          <Box mt={1} display="flex" gap={1}>
+            <Button
+              variant="outlined"
+              onClick={handleReset}
+              startIcon={<Refresh />}
+              fullWidth
+            >
+              Reset
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={handleDownload}
+              disabled={!transformedImage}
+              startIcon={<Download />}
+              fullWidth
+            >
+              Download
+            </Button>
+          </Box>
+
+          {/* Refresh Models Button */}
+          <Box mt={2}>
+            <Button
+              variant="text"
+              onClick={loadModelsAndStyles}
+              startIcon={<Refresh />}
+              fullWidth
+              size="small"
+            >
+              Refresh Models
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+    </Grid>
+
+    {/* Right Panel - Images */}
+    <Grid item xs={12} md={8}>
+      <Grid container spacing={2}>
+        {/* Original Image */}
+        <Grid item xs={12} md={6}>
+          <Paper elevation={3} sx={{ p: 2, height: '100%' }}>
+            <Typography variant="h6" gutterBottom>
+              Original Image
+            </Typography>
+            <ImageUpload onImageUpload={handleImageUpload} />
+            {originalImage && (
+              <Box mt={2}>
+                <ImagePreview src={originalImage} alt="Original" />
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
+        {/* Transformed Image */}
+        <Grid item xs={12} md={6}>
+          <Paper elevation={3} sx={{ p: 2, height: '100%' }}>
+            <Typography variant="h6" gutterBottom>
+              Transformed Image
+            </Typography>
+            {isLoading ? (
+              <Box 
+                display="flex" 
+                flexDirection="column" 
+                alignItems="center" 
+                justifyContent="center" 
+                height={300}
+              >
+                <CircularProgress size={60} />
+                <Typography variant="body2" mt={2} color="text.secondary">
+                  AI is working its magic...
+                </Typography>
+              </Box>
+            ) : transformedImage ? (
+              <ImagePreview src={transformedImage} alt="Transformed" />
+            ) : (
+              <Box 
+                display="flex" 
+                alignItems="center" 
+                justifyContent="center" 
+                height={300}
+                bgcolor="grey.100"
+                borderRadius={1}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Transformed image will appear here
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Error Display */}
+      {error && (
+        <Box mt={2}>
+          <Alert severity="error" onClose={() => setError('')}>
+            {error}
+          </Alert>
+        </Box>
+      )}
+    </Grid>
+  </Grid>
+);
 
 export default App;

@@ -13,7 +13,13 @@ import uuid
 import logging
 import cv2
 import numpy as np
-from controlnet_aux import CannyDetector, MidasDetector, OpenposeDetector
+try:
+    from controlnet_aux import CannyDetector, MidasDetector, OpenposeDetector
+    CONTROLNET_AVAILABLE = True
+    print("✅ ControlNet auxiliary libraries loaded successfully")
+except ImportError as e:
+    print(f"⚠️ ControlNet-aux not available: {e}. Some advanced features may be limited.")
+    CONTROLNET_AVAILABLE = False
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,14 +36,25 @@ MODELS_FOLDER = 'models'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(MODELS_FOLDER, exist_ok=True)
 
-# Global variables for models
+# Global variables for models - NOW LAZY LOADED
 current_pipeline = None
 current_model = None
 available_models = {}
+models_loaded = False
 
-# ControlNet models for structural guidance
+# ControlNet models for structural guidance - LAZY LOADED
 controlnet_models = {}
 controlnet_processors = {}
+controlnet_loaded = False
+
+def get_device():
+    """Get the optimal device for model loading"""
+    if torch.cuda.is_available():
+        return "cuda"
+    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        return "mps"
+    else:
+        return "cpu"
 
 # ControlNet configurations for different guidance types
 CONTROLNET_CONFIGS = {
@@ -128,39 +145,66 @@ STYLES = {
 }
 
 def scan_for_models():
-    """Scan for available models - only use Ukiyo-e custom model"""
+    """Scan for available models in the models directory"""
     global available_models
-    
-    # Only use the custom Ukiyo-e model
-    ukiyo_model_path = os.path.join(MODELS_FOLDER, "ukiyo_e_lora")
     
     available_models = {}
     
-    # Check if custom Ukiyo-e model exists
-    if os.path.exists(ukiyo_model_path) and os.path.exists(os.path.join(ukiyo_model_path, "model_index.json")):
-        available_models["ukiyo_e_lora"] = {
-            "name": "Ukiyo-e Traditional Art",
-            "type": "local",
-            "path": ukiyo_model_path,
-            "description": "Authentic Edo-period woodblock print style"
-        }
-        logger.info(f"Found Ukiyo-e model at: {ukiyo_model_path}")
-    else:
-        logger.warning(f"Ukiyo-e model not found at: {ukiyo_model_path}")
-        # Fallback to online model if custom model not available
+    # Scan the models directory for available models
+    if os.path.exists(MODELS_FOLDER):
+        logger.info(f"Scanning models directory: {MODELS_FOLDER}")
+        
+        for item in os.listdir(MODELS_FOLDER):
+            item_path = os.path.join(MODELS_FOLDER, item)
+            
+            # Skip files, only check directories
+            if not os.path.isdir(item_path):
+                continue
+                
+            # Check if it's a full Stable Diffusion model (has model_index.json)
+            model_index_path = os.path.join(item_path, "model_index.json")
+            if os.path.exists(model_index_path):
+                model_name = "Ukiyo-e Traditional Art" if item == "ukiyo_e_lora" else f"{item.replace('_', ' ').title()}"
+                available_models[item] = {
+                    "name": model_name,
+                    "type": "local",
+                    "path": item_path,
+                    "description": f"Local model: {model_name}"
+                }
+                logger.info(f"Found full model at: {item_path}")
+            
+            # Check if it's a LoRA model (has .safetensors files)
+            elif any(f.endswith('.safetensors') for f in os.listdir(item_path) if os.path.isfile(os.path.join(item_path, f))):
+                model_name = "Indian Traditional Art" if item == "lora_IndianArt" else f"{item.replace('_', ' ').title()}"
+                available_models[item] = {
+                    "name": model_name,
+                    "type": "lora",
+                    "path": item_path,
+                    "description": f"LoRA adapter: {model_name}"
+                }
+                logger.info(f"Found LoRA model at: {item_path}")
+    
+    # If no models found, add fallback
+    if not available_models:
+        logger.warning("No local models found, adding fallback online model")
         available_models["runwayml/stable-diffusion-v1-5"] = {
             "name": "Stable Diffusion v1.5 (Fallback)",
             "type": "online",
             "path": "runwayml/stable-diffusion-v1-5",
-            "description": "Standard model (will be converted to Ukiyo-e style)"
+            "description": "Standard model (will be converted to traditional art style)"
         }
     
     logger.info(f"Available models: {list(available_models.keys())}")
     return available_models
 
 def initialize_controlnet_models():
-    """Initialize ControlNet models and processors"""
-    global controlnet_models, controlnet_processors
+    """Initialize ControlNet models and processors - LAZY LOADING"""
+    global controlnet_models, controlnet_processors, controlnet_loaded
+    
+    # Only load when actually needed
+    if controlnet_loaded:
+        logger.info("♻️ ControlNet models already loaded")
+        return
     
     try:
         # Determine device
@@ -174,9 +218,9 @@ def initialize_controlnet_models():
             device = "cpu"
             torch_dtype = torch.float32
             
-        logger.info(f"Initializing ControlNet models on device: {device}")
+        logger.info(f"🔄 Lazy loading ControlNet models on device: {device}")
         
-        # Initialize ControlNet models
+        # Initialize ControlNet models only when needed
         for control_type, config in CONTROLNET_CONFIGS.items():
             try:
                 logger.info(f"Loading ControlNet model: {config['name']}")
@@ -189,26 +233,31 @@ def initialize_controlnet_models():
             except Exception as e:
                 logger.warning(f"Failed to load {config['name']} ControlNet: {str(e)}")
         
-        # Initialize preprocessors
-        try:
-            controlnet_processors['canny'] = CannyDetector()
-            logger.info("✓ Initialized Canny detector")
-        except Exception as e:
-            logger.warning(f"Failed to initialize Canny detector: {str(e)}")
+        controlnet_loaded = True
+        
+        # Initialize preprocessors only if ControlNet aux is available
+        if CONTROLNET_AVAILABLE:
+            try:
+                controlnet_processors['canny'] = CannyDetector()
+                logger.info("✓ Initialized Canny detector")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Canny detector: {str(e)}")
+                
+            try:
+                controlnet_processors['depth'] = MidasDetector.from_pretrained('valhalla/t2iadapter-aux-models')
+                logger.info("✓ Initialized Depth detector")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Depth detector: {str(e)}")
+                
+            try:
+                controlnet_processors['openpose'] = OpenposeDetector.from_pretrained('valhalla/t2iadapter-aux-models')
+                logger.info("✓ Initialized Pose detector")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Pose detector: {str(e)}")
+        else:
+            logger.warning("⚠️ ControlNet auxiliary libraries not available - processors not initialized")
             
-        try:
-            controlnet_processors['depth'] = MidasDetector.from_pretrained('valhalla/t2iadapter-aux-models')
-            logger.info("✓ Initialized Depth detector")
-        except Exception as e:
-            logger.warning(f"Failed to initialize Depth detector: {str(e)}")
-            
-        try:
-            controlnet_processors['openpose'] = OpenposeDetector.from_pretrained('valhalla/t2iadapter-aux-models')
-            logger.info("✓ Initialized Pose detector")
-        except Exception as e:
-            logger.warning(f"Failed to initialize Pose detector: {str(e)}")
-            
-        logger.info(f"ControlNet initialization complete. Available: {list(controlnet_models.keys())}")
+        logger.info(f"ControlNet initialization complete. Models: {list(controlnet_models.keys())}, Processors: {list(controlnet_processors.keys())}")
         
     except Exception as e:
         logger.error(f"Error initializing ControlNet models: {str(e)}")
@@ -216,6 +265,15 @@ def initialize_controlnet_models():
 def preprocess_controlnet_input(image, control_type, **kwargs):
     """Preprocess image for specific ControlNet type"""
     try:
+        # Check if ControlNet aux is available and processors are initialized
+        if not CONTROLNET_AVAILABLE:
+            logger.warning(f"⚠️ ControlNet auxiliary not available for {control_type} preprocessing")
+            return image  # Return original image as fallback
+            
+        if control_type not in controlnet_processors:
+            logger.warning(f"⚠️ Processor for {control_type} not available, using fallback")
+            return image  # Return original image as fallback
+            
         if control_type == 'canny':
             low_threshold = kwargs.get('low_threshold', 100)
             high_threshold = kwargs.get('high_threshold', 200)
@@ -232,22 +290,26 @@ def preprocess_controlnet_input(image, control_type, **kwargs):
             control_image = controlnet_processors['openpose'](image)
             
         else:
-            raise ValueError(f"Unsupported ControlNet type: {control_type}")
+            logger.warning(f"Unsupported ControlNet type: {control_type}, using original image")
+            return image
             
         return control_image
         
     except Exception as e:
         logger.error(f"Error preprocessing image for {control_type}: {str(e)}")
-        raise
+        logger.info("Falling back to original image")
+        return image  # Return original image as fallback instead of raising
 
 def load_model(model_id, control_type=None):
-    """Load a specific model with Ukiyo-e optimizations and optional ControlNet"""
+    """Load a specific model ONLY when needed for transformation"""
     global current_pipeline, current_model
     
     # Create a unique identifier for the pipeline configuration
     pipeline_id = f"{model_id}_{control_type}" if control_type else model_id
     
+    # Only return existing pipeline if it's the exact same configuration
     if current_model == pipeline_id and current_pipeline is not None:
+        logger.info(f"♻️ Reusing already loaded pipeline: {pipeline_id}")
         return current_pipeline
     
     try:
@@ -255,12 +317,17 @@ def load_model(model_id, control_type=None):
         if not model_info:
             raise ValueError(f"Model {model_id} not found")
         
-        logger.info(f"Loading model: {model_info['name']} with ControlNet: {control_type or 'None'}")
+        logger.info(f"🔄 Loading model: {model_info['name']} (Type: {model_info['type']}) with ControlNet: {control_type or 'None'}")
         
         # Clear current pipeline to free memory
         if current_pipeline:
+            logger.info("🗑️ Clearing previous pipeline to save memory")
             del current_pipeline
-            torch.cuda.empty_cache() if torch.cuda.is_available() else None
+            current_pipeline = None
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                torch.mps.empty_cache()
         
         # Determine device and dtype
         if torch.cuda.is_available():
@@ -275,12 +342,23 @@ def load_model(model_id, control_type=None):
         
         logger.info(f"Using device: {device}")
         
+        # Determine base model path based on model type
+        if model_info['type'] == 'local':
+            # Full Stable Diffusion model
+            base_model_path = model_info['path']
+        elif model_info['type'] == 'lora':
+            # LoRA adapter - use base model
+            base_model_path = "runwayml/stable-diffusion-v1-5"
+        else:
+            # Online model
+            base_model_path = model_info['path']
+        
         # Load the pipeline with ControlNet if specified
         if control_type and control_type in controlnet_models:
             # Load ControlNet pipeline
             controlnet = controlnet_models[control_type]
             pipeline = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
-                model_info['path'],
+                base_model_path,
                 controlnet=controlnet,
                 torch_dtype=torch_dtype,
                 safety_checker=None,
@@ -291,12 +369,28 @@ def load_model(model_id, control_type=None):
         else:
             # Load standard pipeline
             pipeline = StableDiffusionImg2ImgPipeline.from_pretrained(
-                model_info['path'],
+                base_model_path,
                 torch_dtype=torch_dtype,
                 safety_checker=None,
                 requires_safety_checker=False,
                 low_cpu_mem_usage=True if device == "cpu" else False
             )
+        
+        # Apply LoRA weights if it's a LoRA model
+        if model_info['type'] == 'lora':
+            lora_path = None
+            for file in os.listdir(model_info['path']):
+                if file.endswith('.safetensors'):
+                    lora_path = os.path.join(model_info['path'], file)
+                    break
+            
+            if lora_path:
+                logger.info(f"Applying LoRA weights from: {lora_path}")
+                try:
+                    pipeline.load_lora_weights(lora_path)
+                except Exception as e:
+                    logger.warning(f"Could not load LoRA weights: {e}")
+                    logger.info("Continuing with base model...")
         
         # Use DPM Solver for better quality
         from diffusers import DPMSolverMultistepScheduler
@@ -323,8 +417,10 @@ def load_model(model_id, control_type=None):
 
 def process_image(image_data, prompt="", negative_prompt="", style="classic_ukiyo", 
                  strength=0.85, guidance_scale=12.0, num_inference_steps=30, model_id=None):
-    """Process image with Ukiyo-e transformation and automatic ControlNet guidance"""
+    """Process image with transformation and automatic ControlNet guidance - LOADS MODELS ON-DEMAND"""
     try:
+        logger.info(f"🎨 Starting image transformation with style: {style}")
+        
         # Decode base64 image
         if image_data.startswith('data:image'):
             image_data = image_data.split(',')[1]
@@ -342,11 +438,18 @@ def process_image(image_data, prompt="", negative_prompt="", style="classic_ukiy
         control_type = "canny"  # Default to canny for edge preservation
         controlnet_conditioning_scale = 0.6  # Lower for more artistic freedom
         
-        # Load model - default to Ukiyo-e model
+        # Load model on-demand - default to available model
         if not model_id:
             model_id = "ukiyo_e_lora" if "ukiyo_e_lora" in available_models else list(available_models.keys())[0]
         
-        # Load pipeline with automatic ControlNet
+        logger.info(f"🔄 Loading pipeline on-demand: {model_id} with ControlNet: {control_type}")
+        
+        # Initialize ControlNet models if needed for this transformation
+        if control_type and not controlnet_loaded:
+            logger.info("🔄 Initializing ControlNet models for this transformation...")
+            initialize_controlnet_models()
+        
+        # Load pipeline with automatic ControlNet ON-DEMAND
         pipeline = load_model(model_id, control_type)
         
         # Get style information
@@ -495,12 +598,19 @@ def transform_image():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
+    """Health check endpoint with lazy loading status"""
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
         'cuda_available': torch.cuda.is_available(),
-        'current_model': current_model
+        'mps_available': torch.backends.mps.is_available() if hasattr(torch.backends, 'mps') else False,
+        'device': get_device(),
+        'current_model': current_model,
+        'models_loaded': models_loaded,
+        'controlnet_loaded': controlnet_loaded,
+        'lazy_loading': True,
+        'available_models': list(available_models.keys()),
+        'pipeline_ready': current_pipeline is not None
     })
 
 @app.route('/', methods=['GET'])
@@ -519,14 +629,15 @@ def index():
     })
 
 if __name__ == '__main__':
-    logger.info("🎨 Starting UkiyoeFusion API Server")
+    logger.info("🎨 Starting Ancient Vision API Server - LAZY LOADING MODE")
     logger.info(f"CUDA Available: {torch.cuda.is_available()}")
     
-    # Scan for available models on startup
+    # Only scan for available models on startup - NO LOADING
     scan_for_models()
+    logger.info("📋 Model scanning complete. Models will load on-demand for better performance.")
     
-    # Initialize ControlNet models and processors
-    initialize_controlnet_models()
+    # ControlNet models will be loaded when needed
+    logger.info("⚡ ControlNet models will load when transformation requires them.")
     
     # Use port 5001 to avoid conflicts with AirPlay
     port = int(os.environ.get('FLASK_RUN_PORT', 5001))
