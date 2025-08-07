@@ -101,38 +101,60 @@ STYLES = {
 }
 
 def scan_for_models():
-    """Scan for available models - only use Ukiyo-e custom model"""
+    """Scan for available models in the models directory"""
     global available_models
-    
-    # Only use the custom Ukiyo-e model
-    ukiyo_model_path = os.path.join(MODELS_FOLDER, "ukiyo_e_lora")
     
     available_models = {}
     
-    # Check if custom Ukiyo-e model exists
-    if os.path.exists(ukiyo_model_path) and os.path.exists(os.path.join(ukiyo_model_path, "model_index.json")):
-        available_models["ukiyo_e_lora"] = {
-            "name": "Ukiyo-e Traditional Art",
-            "type": "local",
-            "path": ukiyo_model_path,
-            "description": "Authentic Edo-period woodblock print style"
-        }
-        logger.info(f"Found Ukiyo-e model at: {ukiyo_model_path}")
-    else:
-        logger.warning(f"Ukiyo-e model not found at: {ukiyo_model_path}")
-        # Fallback to online model if custom model not available
+    # Scan the models directory for available models
+    if os.path.exists(MODELS_FOLDER):
+        logger.info(f"Scanning models directory: {MODELS_FOLDER}")
+        
+        for item in os.listdir(MODELS_FOLDER):
+            item_path = os.path.join(MODELS_FOLDER, item)
+            
+            # Skip files, only check directories
+            if not os.path.isdir(item_path):
+                continue
+                
+            # Check if it's a full Stable Diffusion model (has model_index.json)
+            model_index_path = os.path.join(item_path, "model_index.json")
+            if os.path.exists(model_index_path):
+                model_name = "Ukiyo-e Traditional Art" if item == "ukiyo_e_lora" else f"{item.replace('_', ' ').title()}"
+                available_models[item] = {
+                    "name": model_name,
+                    "type": "local",
+                    "path": item_path,
+                    "description": f"Local model: {model_name}"
+                }
+                logger.info(f"Found full model at: {item_path}")
+            
+            # Check if it's a LoRA model (has .safetensors files)
+            elif any(f.endswith('.safetensors') for f in os.listdir(item_path) if os.path.isfile(os.path.join(item_path, f))):
+                model_name = "Indian Traditional Art" if item == "lora_IndianArt" else f"{item.replace('_', ' ').title()}"
+                available_models[item] = {
+                    "name": model_name,
+                    "type": "lora",
+                    "path": item_path,
+                    "description": f"LoRA adapter: {model_name}"
+                }
+                logger.info(f"Found LoRA model at: {item_path}")
+    
+    # If no models found, add fallback
+    if not available_models:
+        logger.warning("No local models found, adding fallback online model")
         available_models["runwayml/stable-diffusion-v1-5"] = {
             "name": "Stable Diffusion v1.5 (Fallback)",
             "type": "online",
             "path": "runwayml/stable-diffusion-v1-5",
-            "description": "Standard model (will be converted to Ukiyo-e style)"
+            "description": "Standard model (will be converted to traditional art style)"
         }
     
     logger.info(f"Available models: {list(available_models.keys())}")
     return available_models
 
 def load_model(model_id):
-    """Load a specific model with Ukiyo-e optimizations"""
+    """Load a specific model with traditional art optimizations"""
     global current_pipeline, current_model
     
     if current_model == model_id and current_pipeline is not None:
@@ -143,7 +165,7 @@ def load_model(model_id):
         if not model_info:
             raise ValueError(f"Model {model_id} not found")
         
-        logger.info(f"Loading model: {model_info['name']}")
+        logger.info(f"Loading model: {model_info['name']} (Type: {model_info['type']})")
         
         # Clear current pipeline to free memory
         if current_pipeline:
@@ -163,14 +185,50 @@ def load_model(model_id):
         
         logger.info(f"Using device: {device}")
         
-        # Load the standard pipeline
-        pipeline = StableDiffusionImg2ImgPipeline.from_pretrained(
-            model_info['path'],
-            torch_dtype=torch_dtype,
-            safety_checker=None,
-            requires_safety_checker=False,
-            low_cpu_mem_usage=True if device == "cpu" else False
-        )
+        # Handle different model types
+        if model_info['type'] == 'local':
+            # Full Stable Diffusion model
+            pipeline = StableDiffusionImg2ImgPipeline.from_pretrained(
+                model_info['path'],
+                torch_dtype=torch_dtype,
+                safety_checker=None,
+                requires_safety_checker=False,
+                low_cpu_mem_usage=True if device == "cpu" else False
+            )
+        elif model_info['type'] == 'lora':
+            # LoRA adapter - load base model and apply LoRA
+            logger.info("Loading base model for LoRA adapter...")
+            pipeline = StableDiffusionImg2ImgPipeline.from_pretrained(
+                "runwayml/stable-diffusion-v1-5",
+                torch_dtype=torch_dtype,
+                safety_checker=None,
+                requires_safety_checker=False,
+                low_cpu_mem_usage=True if device == "cpu" else False
+            )
+            
+            # Apply LoRA weights
+            lora_path = None
+            for file in os.listdir(model_info['path']):
+                if file.endswith('.safetensors'):
+                    lora_path = os.path.join(model_info['path'], file)
+                    break
+            
+            if lora_path:
+                logger.info(f"Applying LoRA weights from: {lora_path}")
+                try:
+                    pipeline.load_lora_weights(lora_path)
+                except Exception as e:
+                    logger.warning(f"Could not load LoRA weights: {e}")
+                    logger.info("Continuing with base model...")
+        else:
+            # Online model
+            pipeline = StableDiffusionImg2ImgPipeline.from_pretrained(
+                model_info['path'],
+                torch_dtype=torch_dtype,
+                safety_checker=None,
+                requires_safety_checker=False,
+                low_cpu_mem_usage=True if device == "cpu" else False
+            )
         
         # Use DPM Solver for better quality
         from diffusers import DPMSolverMultistepScheduler

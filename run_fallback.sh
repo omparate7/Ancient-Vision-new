@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🎨 UkiyoeFusion - Quick Start (Fallback Mode)"
+echo "🎨 Ancient Vision - Quick Start (Fallback Mode)"
 echo "=============================================="
 
 # Colors for output
