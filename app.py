@@ -5,6 +5,7 @@ import io
 import base64
 from PIL import Image
 import torch
+
 from diffusers import StableDiffusionImg2ImgPipeline, DPMSolverMultistepScheduler
 from diffusers import StableDiffusionControlNetImg2ImgPipeline, ControlNetModel
 import json
@@ -41,6 +42,7 @@ current_pipeline = None
 current_model = None
 available_models = {}
 models_loaded = False
+transformation_progress = {"status": "idle", "progress": 0, "step": 0, "total_steps": 0}
 
 # ControlNet models for structural guidance - LAZY LOADED
 controlnet_models = {}
@@ -335,7 +337,7 @@ def load_model(model_id, control_type=None):
             torch_dtype = torch.float16
         elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
             device = "mps"
-            torch_dtype = torch.float32
+            torch_dtype = torch.float16  # Use float16 on MPS for memory efficiency
         else:
             device = "cpu"
             torch_dtype = torch.float32
@@ -363,7 +365,7 @@ def load_model(model_id, control_type=None):
                 torch_dtype=torch_dtype,
                 safety_checker=None,
                 requires_safety_checker=False,
-                low_cpu_mem_usage=True if device == "cpu" else False
+                low_cpu_mem_usage=True
             )
             logger.info(f"Loaded ControlNet pipeline with {CONTROLNET_CONFIGS[control_type]['name']}")
         else:
@@ -373,7 +375,7 @@ def load_model(model_id, control_type=None):
                 torch_dtype=torch_dtype,
                 safety_checker=None,
                 requires_safety_checker=False,
-                low_cpu_mem_usage=True if device == "cpu" else False
+                low_cpu_mem_usage=True
             )
         
         # Apply LoRA weights if it's a LoRA model
@@ -399,11 +401,13 @@ def load_model(model_id, control_type=None):
         # Move to device
         pipeline = pipeline.to(device)
         
-        # Enable memory efficient optimizations
+        # Enable memory efficient optimizations for MPS performance
         if hasattr(pipeline, 'enable_attention_slicing'):
             pipeline.enable_attention_slicing()
         if hasattr(pipeline, 'enable_vae_slicing'):
             pipeline.enable_vae_slicing()
+        
+        # Note: enable_sequential_cpu_offload requires accelerate library, skip for now
         
         current_pipeline = pipeline
         current_model = pipeline_id
@@ -415,10 +419,34 @@ def load_model(model_id, control_type=None):
         logger.error(f"Error loading model {model_id}: {str(e)}")
         raise
 
+def progress_callback(step, timestep, latents):
+    """Callback function to track transformation progress"""
+    global transformation_progress
+    try:
+        transformation_progress.update({
+            "status": "processing",
+            "progress": int((step / transformation_progress["total_steps"]) * 100),
+            "step": step + 1,
+            "total_steps": transformation_progress["total_steps"]
+        })
+    except Exception as e:
+        logger.warning(f"Progress callback error: {e}")
+    # Don't return anything for the old-style callback
+
 def process_image(image_data, prompt="", negative_prompt="", style="classic_ukiyo", 
                  strength=0.85, guidance_scale=12.0, num_inference_steps=30, model_id=None):
     """Process image with transformation and automatic ControlNet guidance - LOADS MODELS ON-DEMAND"""
+    global transformation_progress
+    
     try:
+        # Initialize progress tracking
+        transformation_progress.update({
+            "status": "starting",
+            "progress": 0,
+            "step": 0,
+            "total_steps": num_inference_steps
+        })
+        
         logger.info(f"🎨 Starting image transformation with style: {style}")
         
         # Decode base64 image
@@ -428,15 +456,35 @@ def process_image(image_data, prompt="", negative_prompt="", style="classic_ukiy
         image_bytes = base64.b64decode(image_data)
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         
-        # Resize image - use fixed 512x512 dimensions
-        width = 512
+        # Resize image - optimize for MPS memory constraints
+        width = 512  # Reduced resolution to avoid MPS memory issues
         height = 512
         
-        image = image.resize((width, height), Image.Resampling.LANCZOS)
+        # Resize image while maintaining aspect ratio, then center crop
+        original_width, original_height = image.size
+        aspect_ratio = original_width / original_height
         
-        # Automatically determine best ControlNet type
-        control_type = "canny"  # Default to canny for edge preservation
-        controlnet_conditioning_scale = 0.6  # Lower for more artistic freedom
+        if aspect_ratio > 1:  # Width > Height
+            new_width = width
+            new_height = int(width / aspect_ratio)
+        else:  # Height >= Width
+            new_height = height
+            new_width = int(height * aspect_ratio)
+        
+        # Resize and center crop
+        image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        
+        # Center crop to exact dimensions
+        if new_width != width or new_height != height:
+            left = (new_width - width) // 2
+            top = (new_height - height) // 2
+            right = left + width
+            bottom = top + height
+            image = image.crop((left, top, right, bottom))
+        
+        # Automatically determine best ControlNet type - DISABLED for memory optimization
+        control_type = None  # Disable ControlNet by default to save memory
+        controlnet_conditioning_scale = 0.5  # Lower for faster processing and more artistic freedom
         
         # Load model on-demand - default to available model
         if not model_id:
@@ -468,7 +516,10 @@ def process_image(image_data, prompt="", negative_prompt="", style="classic_ukiy
         
         logger.info(f"Processing image with Ukiyo-e style: {style}")
         logger.info(f"Using prompt: {full_prompt}")
-        logger.info(f"Auto-applying ControlNet: {CONTROLNET_CONFIGS[control_type]['name']}")
+        if control_type:
+            logger.info(f"Auto-applying ControlNet: {CONTROLNET_CONFIGS[control_type]['name']}")
+        else:
+            logger.info("ControlNet: Disabled for better performance")
         
         # Prepare generation parameters
         generation_kwargs = {
@@ -499,9 +550,68 @@ def process_image(image_data, prompt="", negative_prompt="", style="classic_ukiy
             
             logger.info(f"Applied automatic ControlNet guidance with strength {controlnet_conditioning_scale}")
         
-        # Generate image with Ukiyo-e optimized parameters
-        with torch.autocast("cuda" if torch.cuda.is_available() else "cpu"):
-            result = pipeline(**generation_kwargs).images[0]
+        # Update progress before generation
+        transformation_progress.update({
+            "status": "generating",
+            "progress": 0,
+            "step": 0,
+            "total_steps": num_inference_steps
+        })
+        
+        # Generate image with Ukiyo-e optimized parameters - Remove callback temporarily
+        logger.info(f"Starting image generation with {len(generation_kwargs)} parameters...")
+        logger.info(f"Generation kwargs keys: {list(generation_kwargs.keys())}")
+        
+        try:
+            if torch.cuda.is_available():
+                with torch.autocast("cuda"):
+                    pipeline_result = pipeline(**generation_kwargs)
+                    logger.info(f"Pipeline result type: {type(pipeline_result)}")
+                    result = pipeline_result.images[0]
+            else:
+                # For MPS and CPU, don't use autocast to avoid issues
+                # Add memory cleanup before generation
+                if torch.backends.mps.is_available():
+                    torch.mps.empty_cache()
+                
+                pipeline_result = pipeline(**generation_kwargs)
+                logger.info(f"Pipeline result type: {type(pipeline_result)}")
+                logger.info(f"Pipeline result has images: {hasattr(pipeline_result, 'images')}")
+                if hasattr(pipeline_result, 'images'):
+                    logger.info(f"Images length: {len(pipeline_result.images)}")
+                result = pipeline_result.images[0]
+                
+            logger.info(f"Generated image type: {type(result)}")
+            
+            # Debug: Check image statistics to identify black result cause
+            import numpy as np
+            img_array = np.array(result)
+            logger.info(f"Image array shape: {img_array.shape}")
+            logger.info(f"Image array dtype: {img_array.dtype}")
+            logger.info(f"Image array min/max: {img_array.min()}/{img_array.max()}")
+            logger.info(f"Image array mean: {img_array.mean():.2f}")
+            logger.info(f"Contains NaN: {np.isnan(img_array).any()}")
+            logger.info(f"Contains Inf: {np.isinf(img_array).any()}")
+            
+            # Fix NaN values if present (common with MPS float16)
+            if np.isnan(img_array).any() or np.isinf(img_array).any():
+                logger.warning("⚠️ Found NaN or Inf values in image, replacing with valid values")
+                # Replace NaN with neutral gray, Inf values with max/min
+                img_array = np.nan_to_num(img_array, nan=128.0, posinf=255.0, neginf=0.0)
+                result = Image.fromarray(img_array.astype(np.uint8))
+                logger.info("✅ Fixed NaN/Inf values in image")
+            
+        except Exception as gen_error:
+            logger.error(f"Generation error: {gen_error}")
+            raise
+        
+        # Update progress to completion
+        transformation_progress.update({
+            "status": "completed",
+            "progress": 100,
+            "step": num_inference_steps,
+            "total_steps": num_inference_steps
+        })
         
         # Convert result to base64
         output_buffer = io.BytesIO()
@@ -521,6 +631,14 @@ def process_image(image_data, prompt="", negative_prompt="", style="classic_ukiy
         }
         
     except Exception as e:
+        # Update progress on error
+        transformation_progress.update({
+            "status": "error",
+            "progress": 0,
+            "step": 0,
+            "total_steps": 0,
+            "error": str(e)
+        })
         logger.error(f"Error processing image: {str(e)}")
         return {
             'success': False,
@@ -570,12 +688,12 @@ def transform_image():
         if 'image' not in data:
             return jsonify({'error': 'No image provided'}), 400
         
-        # Extract parameters - make prompt optional
+        # Extract parameters - optimized for proper art transformation
         image_data = data['image']
         prompt = data.get('prompt', '')  # Optional, can be empty
         style = data.get('style', 'classic_ukiyo')  # Default to classic Ukiyo-e
-        strength = float(data.get('strength', 0.85))  # Higher for more style transformation
-        guidance_scale = float(data.get('guidance_scale', 12.0))  # Higher for stronger style adherence
+        strength = float(data.get('strength', 0.8))  # Higher for better transformation
+        guidance_scale = float(data.get('guidance_scale', 15.0))  # Higher for stronger style adherence
         num_inference_steps = int(data.get('num_inference_steps', 30))  # More steps for better quality
         model_id = data.get('model_id')  # Will default to Ukiyo-e model
         
@@ -595,6 +713,11 @@ def transform_image():
     except Exception as e:
         logger.error(f"Error in transform_image: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/progress', methods=['GET'])
+def get_progress():
+    """Get current transformation progress"""
+    return jsonify(transformation_progress)
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -640,5 +763,6 @@ if __name__ == '__main__':
     logger.info("⚡ ControlNet models will load when transformation requires them.")
     
     # Use port 5001 to avoid conflicts with AirPlay
+    # Debug=False to prevent auto-restart during long transformations
     port = int(os.environ.get('FLASK_RUN_PORT', 5001))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=False)
